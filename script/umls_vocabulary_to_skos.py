@@ -4,7 +4,7 @@ import logging
 import json
 import os
 import string
-
+import codecs
 
 class RRFReader(object):
     """A generalized class for reading RRF files. Requires a dict which which has column
@@ -71,8 +71,9 @@ def transform_to_url(string_to_transform):
 
 class UMLSJsonToISFSKOS(object):
     """A class for transform JSON extracted from RRF files from the UMLS into a SKOS ISF compatible format"""
-    def __init__(self, json_file_name):
-        self.json_file_name = json_file_name
+    def __init__(self, aui_json_file_name, sab_json_file_name="sab_umls.json"):
+        self.aui_json_file_name = aui_json_file_name
+        self.sab_json_file_name = sab_json_file_name
 
         self.prefixes = {"skos" : "http://www.w3.org/2004/02/skos/core#",
                          "rdf" : "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
@@ -83,13 +84,32 @@ class UMLSJsonToISFSKOS(object):
 
         self.rdf_type = self.prefixes["rdf"] + "type"
         self.see_also = self.prefixes["rdfs"] + "seeAlso"
-        self.skos_concept = self.prefixes["skos"] + "concept"
 
-        self._load_json_file()
+        #SKOS URIs
+        self.skos_concept = self.prefixes["skos"] + "Concept"
+        self.skos_is_in_scheme = self.prefixes["skos"] + "is_in_scheme"
+        self.skos_concept_scheme = self.prefixes["skos"] + "Concept_Scheme"
+        self.skos_is_top_in_scheme = self.prefixes["skos"] + "is_in_top_scheme"
+        self.skos_notation = self.prefixes["skos"] + "notation"
+        self.skos_has_broader = self.prefixes["skos"] + "broader"
+        self.skos_preferred_label = self.prefixes["skos"] + "preferred_label"
+        self.skos_collection = self.prefixes["skos"] + "Collection"
+        self.skos_has_member = self.prefixes["skos"] + "member"
 
-    def _load_json_file(self):
-        with open(self.json_file_name) as fj:
+        #SKOSXL
+        self.skosxl_literal_form = self.prefixes["skosxl"] + "literal_form"
+
+        self._load_json_files()
+
+    def _load_json_files(self):
+        with open(self.aui_json_file_name) as fj:
             self.umls_dict = json.load(fj)
+
+        with open(self.sab_json_file_name) as fj:
+            self.sab_dict = json.load(fj)
+
+    def set_schema_version_from_sab(self):
+         self.concept_version_abbreviation = self.sab_dict[self.concept_abbreviation]["VSAB"]
 
     def set_base_url(self, url="http://purl.obolibrary.org/obo/arg/skos/"):
         self.base_url = url
@@ -97,33 +117,67 @@ class UMLSJsonToISFSKOS(object):
     def set_concept_abbreviation(self, concept_abbreviation):
         self.concept_abbreviation = concept_abbreviation
 
+    def set_concept_version_abbreviation(self, concept_version_abbreviation):
+        self.concept_version_abbreviation = concept_version_abbreviation
+
+    def schema_uri(self):
+        return self.base_url + "s_" + self.concept_abbreviation + "_" + self.concept_version_abbreviation
+
+    def code_base_uri(self):
+        return self.base_url + "c_" + self.concept_abbreviation
+
+    def literal_base_uri(self):
+        return self.base_url + "l_" + self.concept_abbreviation
+
     def register_transform_code_function(self, transform_code_function):
         self.transform_code_function = transform_code_function
 
+    def code_data_type(self):
+        return self.schema_uri()
+
+    def umls_cui_data_type(self):
+        return self.base_url + "s_umls_cui"
+
     def write_to_out_file(self, file_name="skos_output.nt"):
         sui_dict = {} # TODO: For SUIs do not create duplicates
-        with open(file_name, "w") as ft:
+        with codecs.open(file_name, "w", "utf-8") as ft:
+
+            ft.write("<%s> <%s> <%s> . \n" % (self.skos_concept_scheme, self.rdf_type, self.schema_uri()))
+
             for aui in self.umls_dict.keys():
                 aui_dict = self.umls_dict[aui]
                 code = aui_dict["CODE"]
+                label = aui_dict["STR"]
                 cui = aui_dict["CUI"]
                 code_transformed = self.transform_code_function(code)
                 aui_uri = self.base_url + "c_" + self.concept_abbreviation + "_" + code_transformed
 
                 ntriples = ""
                 ntriples += "<%s> <%s> <%s> .\n" % (aui_uri, self.rdf_type, self.skos_concept)
+                ntriples += "<%s> <%s> <%s> . \n" % (aui_uri, self.skos_is_in_scheme, self.schema_uri())
+                ntriples += '<%s> <%s> "%s"^^<%s> . \n' % (aui_uri, self.skos_preferred_label,
+                                                           self._escape_literal(label), self.code_data_type())
+                ntriples += '<%s> <%s> "%s"^^<%s> . \n' % (aui_uri, self.skos_notation, self._escape_literal(cui),
+                                                           self.umls_cui_data_type())
 
                 ft.write(ntriples)
 
+    def _escape_literal(self, literal):
+        if '"' in literal:
+            literal = string.join(literal.split('"'), r'\"')
+        return literal
 
 def publish_icd9cm(umls_directory="../extract/UMLSMicro2012AB/", refresh_json_file=False):
     sab = "ICD9CM"
-    json_file_name = sab + "_umls.json"
-    json_file_path = os.path.join(umls_directory, json_file_name)
+    aui_json_file_name = sab + "_umls.json"
+    aui_json_file_path = os.path.join(umls_directory, aui_json_file_name)
     refresh = False
     tty_list = ["HT", "PT"]
 
-    if os.path.exists(json_file_path):
+    sab_json_file_name = "sab_umls.json"
+    sab_json_file_path = os.path.join(umls_directory, sab_json_file_name)
+
+    if os.path.exists(sab_json_file_path):
         if refresh_json_file:
             refresh = True
     else:
@@ -132,12 +186,40 @@ def publish_icd9cm(umls_directory="../extract/UMLSMicro2012AB/", refresh_json_fi
     if refresh:
         extract_umls_subset_to_json(umls_directory, sab, tty_list)
 
-    icd9_isf_obj = UMLSJsonToISFSKOS(json_file_path)
+    icd9_isf_obj = UMLSJsonToISFSKOS(aui_json_file_path, sab_json_file_path)
 
     icd9_isf_obj.set_base_url(icd9_isf_obj.prefixes["arg"] + "skos/")
     icd9_isf_obj.set_concept_abbreviation(sab)
+    icd9_isf_obj.set_schema_version_from_sab()
     icd9_isf_obj.register_transform_code_function(transform_to_url)
     icd9_isf_obj.write_to_out_file("../output/" + sab + "_isf_skos.nt")
+
+
+def generate_sab_json(umls_directory):
+    """Filters SAB list by "SABIN" = 'Y' and creates a dict based on the "RSAB" version"""
+    file_layout = read_file_layout("umls_file_layout.json")
+
+    mrsab_rrf = "MRSAB.RRF"
+    mrsab_file_layout = file_layout[mrsab_rrf]
+    mrsab_rrf_file_name = os.path.join(umls_directory, mrsab_rrf)
+    mrsab = RRFReader(mrsab_rrf_file_name, mrsab_file_layout)
+
+    i = 0
+    j = 0
+    sab_dict = {}
+    for sab in mrsab:
+        if sab["SABIN"] == "Y":
+            sab_dict[sab["RSAB"]] = sab
+            j += 1
+        i += 1
+
+    print("From %s SABs read in %s" % (i, j))
+
+    json_sab_file_name = "sab_umls.json"
+    json_sab_file_path = os.path.join(umls_directory, json_sab_file_name)
+    with open(json_sab_file_path,"w") as fj:
+        json.dump(sab_dict, fj)
+    return json_sab_file_path
 
 
 def extract_umls_subset_to_json(umls_directory, SAB="ICD9CM", term_types=["HT", "PT"]):
@@ -145,7 +227,8 @@ def extract_umls_subset_to_json(umls_directory, SAB="ICD9CM", term_types=["HT", 
 
     print("Extracting source '%s' and term types %s" % (SAB, term_types))
     file_layout = read_file_layout("umls_file_layout.json")
-    print(file_layout)
+
+    generate_sab_json(umls_directory)
 
     mrconso_rrf = "MRCONSO.RRF"
     mrconso_file_layout = file_layout[mrconso_rrf]
@@ -222,7 +305,7 @@ def extract_umls_subset_to_json(umls_directory, SAB="ICD9CM", term_types=["HT", 
 
 
 def main():
-    publish_icd9cm()
+    publish_icd9cm(refresh_json_file=False)
 
 if __name__ == "__main__":
     main()

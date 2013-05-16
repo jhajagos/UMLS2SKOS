@@ -91,7 +91,7 @@ class UMLSJsonToISFSKOS(object):
         self.skos_concept_scheme = self.prefixes["skos"] + "Concept_Scheme"
         self.skos_is_top_in_scheme = self.prefixes["skos"] + "is_in_top_scheme"
         self.skos_notation = self.prefixes["skos"] + "notation"
-        self.skos_has_broader = self.prefixes["skos"] + "broader"
+        self.skos_broader = self.prefixes["skos"] + "broader"
         self.skos_preferred_label = self.prefixes["skos"] + "preferred_label"
         self.skos_collection = self.prefixes["skos"] + "Collection"
         self.skos_has_member = self.prefixes["skos"] + "member"
@@ -108,8 +108,12 @@ class UMLSJsonToISFSKOS(object):
         with open(self.sab_json_file_name) as fj:
             self.sab_dict = json.load(fj)
 
+    def set_broader_relationship_field(self, key="REL", value="PAR"):
+        self.broader_key = key
+        self.broader_value = value
+
     def set_schema_version_from_sab(self):
-         self.concept_version_abbreviation = self.sab_dict[self.concept_abbreviation]["VSAB"]
+         self.concept_version_abbreviation = self.sab_dict[self.concept_abbreviation]["SVER"]
 
     def set_base_url(self, url="http://purl.obolibrary.org/obo/arg/skos/"):
         self.base_url = url
@@ -135,6 +139,10 @@ class UMLSJsonToISFSKOS(object):
     def code_data_type(self):
         return self.schema_uri()
 
+    def concept_uri(self,code):
+        code_transformed = self.transform_code_function(code)
+        return self.base_url + "c_" + self.concept_abbreviation + "_" + code_transformed
+
     def umls_cui_data_type(self):
         return self.base_url + "s_umls_cui"
 
@@ -149,16 +157,24 @@ class UMLSJsonToISFSKOS(object):
                 code = aui_dict["CODE"]
                 label = aui_dict["STR"]
                 cui = aui_dict["CUI"]
-                code_transformed = self.transform_code_function(code)
-                aui_uri = self.base_url + "c_" + self.concept_abbreviation + "_" + code_transformed
+                concept_uri = self.concept_uri(code)
 
                 ntriples = ""
-                ntriples += "<%s> <%s> <%s> .\n" % (aui_uri, self.rdf_type, self.skos_concept)
-                ntriples += "<%s> <%s> <%s> . \n" % (aui_uri, self.skos_is_in_scheme, self.schema_uri())
-                ntriples += '<%s> <%s> "%s"^^<%s> . \n' % (aui_uri, self.skos_preferred_label,
+                ntriples += "<%s> <%s> <%s> .\n" % (concept_uri, self.rdf_type, self.skos_concept)
+                ntriples += "<%s> <%s> <%s> . \n" % (concept_uri, self.skos_is_in_scheme, self.schema_uri())
+                ntriples += '<%s> <%s> "%s"^^<%s> . \n' % (concept_uri, self.skos_preferred_label,
                                                            self._escape_literal(label), self.code_data_type())
-                ntriples += '<%s> <%s> "%s"^^<%s> . \n' % (aui_uri, self.skos_notation, self._escape_literal(cui),
-                                                           self.umls_cui_data_type())
+                ntriples += '<%s> <%s> "%s"^^<%s> . \n' % (concept_uri, self.skos_notation, self._escape_literal(cui),self.umls_cui_data_type())
+
+                if "relationships" in aui_dict:
+                    for relationship in aui_dict["relationships"]:
+                        if relationship[self.broader_key] == self.broader_value:
+                            if "AUI2" in relationship:
+                                aui_code_to_link_to = relationship["AUI2"]
+                                if aui_code_to_link_to in self.umls_dict:
+                                    aui_to_link_to = self.umls_dict[aui_code_to_link_to]
+                                    concept_uri_to_link_to = self.concept_uri(aui_to_link_to["CODE"])
+                                    ntriples += '<%s> <%s> <%s> . \n' % (concept_uri, self.skos_broader, concept_uri_to_link_to)
 
                 ft.write(ntriples)
 
@@ -166,6 +182,7 @@ class UMLSJsonToISFSKOS(object):
         if '"' in literal:
             literal = string.join(literal.split('"'), r'\"')
         return literal
+
 
 def publish_icd9cm(umls_directory="../extract/UMLSMicro2012AB/", refresh_json_file=False):
     sab = "ICD9CM"
@@ -192,7 +209,9 @@ def publish_icd9cm(umls_directory="../extract/UMLSMicro2012AB/", refresh_json_fi
     icd9_isf_obj.set_concept_abbreviation(sab)
     icd9_isf_obj.set_schema_version_from_sab()
     icd9_isf_obj.register_transform_code_function(transform_to_url)
+    icd9_isf_obj.set_broader_relationship_field("REL", "PAR")
     icd9_isf_obj.write_to_out_file("../output/" + sab + "_isf_skos.nt")
+
 
 
 def generate_sab_json(umls_directory):

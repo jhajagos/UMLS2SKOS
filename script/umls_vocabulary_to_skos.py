@@ -83,7 +83,8 @@ class UMLSJsonToISFSKOS(object):
                          "skosxl" : "http://www.w3.org/2008/05/skos-xl#"}
 
         self.rdf_type = self.prefixes["rdf"] + "type"
-        self.see_also = self.prefixes["rdfs"] + "seeAlso"
+        self.rdfs_see_also = self.prefixes["rdfs"] + "seeAlso"
+        self.rdfs_label = self.prefixes["rdfs"] + "label"
 
         #SKOS URIs
         self.skos_concept = self.prefixes["skos"] + "Concept"
@@ -124,6 +125,9 @@ class UMLSJsonToISFSKOS(object):
     def set_concept_version_abbreviation(self, concept_version_abbreviation):
         self.concept_version_abbreviation = concept_version_abbreviation
 
+    def set_external_umls_base_uri(self, uri):
+        self.umls_aui_base_uri = uri
+
     def schema_uri(self):
         return self.base_url + "s_" + self.concept_abbreviation + "_" + self.concept_version_abbreviation
 
@@ -146,6 +150,12 @@ class UMLSJsonToISFSKOS(object):
     def umls_cui_data_type(self):
         return self.base_url + "s_umls_cui"
 
+    def umls_aui_data_type(self):
+        return self.base_url + "s_umls_aui"
+
+    def umls_sui_uri(self, sui):
+        return self.base_url + "l_" + self.concept_abbreviation + "_" + sui
+
     def write_to_out_file(self, file_name="skos_output.nt"):
         sui_dict = {} # TODO: For SUIs do not create duplicates
         with codecs.open(file_name, "w", "utf-8") as ft:
@@ -158,13 +168,29 @@ class UMLSJsonToISFSKOS(object):
                 label = aui_dict["STR"]
                 cui = aui_dict["CUI"]
                 concept_uri = self.concept_uri(code)
+                sui = aui_dict["SUI"]
 
                 ntriples = ""
                 ntriples += "<%s> <%s> <%s> .\n" % (concept_uri, self.rdf_type, self.skos_concept)
                 ntriples += "<%s> <%s> <%s> . \n" % (concept_uri, self.skos_is_in_scheme, self.schema_uri())
-                ntriples += '<%s> <%s> "%s"^^<%s> . \n' % (concept_uri, self.skos_preferred_label,
-                                                           self._escape_literal(label), self.code_data_type())
+                ntriples += '<%s> <%s> "%s"^^<%s> . \n' % (concept_uri, self.skos_notation,
+                                                             self._escape_literal(code), self.code_data_type())
+                ntriples += '<%s> <%s> "%s" . \n' % (concept_uri, self.skos_preferred_label,
+                                                             self._escape_literal(label))
                 ntriples += '<%s> <%s> "%s"^^<%s> . \n' % (concept_uri, self.skos_notation, self._escape_literal(cui),self.umls_cui_data_type())
+                ntriples += '<%s> <%s> "%s"^^<%s> . \n' % (concept_uri, self.skos_notation, self._escape_literal(aui),self.umls_aui_data_type())
+
+                ntriples += '<%s> <%s> <%s> .\n' % (concept_uri, self.rdfs_see_also, self.aui_external_uri + aui)
+
+                sui_uri = self.umls_sui_uri(sui)
+                ntriples += '<%s> <%s> <%s> . \n' % (concept_uri, self.skos_preferred_label, sui_uri)
+
+                if sui in sui_dict:
+                    pass
+                else:
+                    sui_dict[sui] = label
+                    ntriples += "<%s> <%s> <%s> .\n" % (sui_uri, self.rdf_type, self.skosxl_literal_form)
+                    ntriples += '<%s> <%s> "%s" .\n' % (sui_uri, self.rdfs_label, self._escape_literal(label))
 
                 if "relationships" in aui_dict:
                     for relationship in aui_dict["relationships"]:
@@ -174,7 +200,8 @@ class UMLSJsonToISFSKOS(object):
                                 if aui_code_to_link_to in self.umls_dict:
                                     aui_to_link_to = self.umls_dict[aui_code_to_link_to]
                                     concept_uri_to_link_to = self.concept_uri(aui_to_link_to["CODE"])
-                                    ntriples += '<%s> <%s> <%s> . \n' % (concept_uri, self.skos_broader, concept_uri_to_link_to)
+                                    ntriples += '<%s> <%s> <%s> . \n' % (concept_uri, self.skos_broader,
+                                                                         concept_uri_to_link_to)
 
                 ft.write(ntriples)
 
@@ -182,6 +209,9 @@ class UMLSJsonToISFSKOS(object):
         if '"' in literal:
             literal = string.join(literal.split('"'), r'\"')
         return literal
+
+    def set_aui_external_uri(self, uri):
+        self.aui_external_uri = uri
 
 
 def publish_icd9cm(umls_directory="../extract/UMLSMicro2012AB/", refresh_json_file=False):
@@ -208,6 +238,7 @@ def publish_icd9cm(umls_directory="../extract/UMLSMicro2012AB/", refresh_json_fi
     icd9_isf_obj.set_base_url(icd9_isf_obj.prefixes["arg"] + "skos/")
     icd9_isf_obj.set_concept_abbreviation(sab)
     icd9_isf_obj.set_schema_version_from_sab()
+    icd9_isf_obj.set_aui_external_uri("http://link.informatics.stonybrook.edu/umls/AUI/")
     icd9_isf_obj.register_transform_code_function(transform_to_url)
     icd9_isf_obj.set_broader_relationship_field("REL", "PAR")
     icd9_isf_obj.write_to_out_file("../output/" + sab + "_isf_skos.nt")

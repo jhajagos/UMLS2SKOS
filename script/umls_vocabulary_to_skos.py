@@ -141,17 +141,17 @@ class UMLSJsonToISFSKOS(object):
         self.transform_code_function = transform_code_function
 
     def code_data_type(self):
-        return self.schema_uri()
+        return self.base_url + "dt_" + self.concept_abbreviation
 
     def concept_uri(self,code):
         code_transformed = self.transform_code_function(code)
         return self.base_url + "c_" + self.concept_abbreviation + "_" + code_transformed
 
     def umls_cui_data_type(self):
-        return self.base_url + "s_umls_cui"
+        return self.base_url + "dt_umls_cui"
 
     def umls_aui_data_type(self):
-        return self.base_url + "s_umls_aui"
+        return self.base_url + "dt_umls_aui"
 
     def umls_sui_uri(self, sui):
         return self.base_url + "l_" + self.concept_abbreviation + "_" + sui
@@ -160,7 +160,7 @@ class UMLSJsonToISFSKOS(object):
         sui_dict = {} # TODO: For SUIs do not create duplicates
         with codecs.open(file_name, "w", "utf-8") as ft:
 
-            ft.write("<%s> <%s> <%s> . \n" % (self.skos_concept_scheme, self.rdf_type, self.schema_uri()))
+            ft.write("<%s> <%s> <%s> . \n" % (self.schema_uri(), self.rdf_type, self.skos_concept_scheme))
 
             for aui in self.umls_dict.keys():
                 aui_dict = self.umls_dict[aui]
@@ -175,7 +175,7 @@ class UMLSJsonToISFSKOS(object):
                 ntriples += "<%s> <%s> <%s> . \n" % (concept_uri, self.skos_is_in_scheme, self.schema_uri())
                 ntriples += '<%s> <%s> "%s"^^<%s> . \n' % (concept_uri, self.skos_notation,
                                                              self._escape_literal(code), self.code_data_type())
-                ntriples += '<%s> <%s> "%s" . \n' % (concept_uri, self.skos_preferred_label,
+                ntriples += '<%s> <%s> "%s"@en . \n' % (concept_uri, self.skos_preferred_label,
                                                              self._escape_literal(label))
                 ntriples += '<%s> <%s> "%s"^^<%s> . \n' % (concept_uri, self.skos_notation, self._escape_literal(cui),self.umls_cui_data_type())
                 ntriples += '<%s> <%s> "%s"^^<%s> . \n' % (concept_uri, self.skos_notation, self._escape_literal(aui),self.umls_aui_data_type())
@@ -190,7 +190,7 @@ class UMLSJsonToISFSKOS(object):
                 else:
                     sui_dict[sui] = label
                     ntriples += "<%s> <%s> <%s> .\n" % (sui_uri, self.rdf_type, self.skosxl_literal_form)
-                    ntriples += '<%s> <%s> "%s" .\n' % (sui_uri, self.rdfs_label, self._escape_literal(label))
+                    ntriples += '<%s> <%s> "%s"@en .\n' % (sui_uri, self.rdfs_label, self._escape_literal(label))
 
                 if "relationships" in aui_dict:
                     for relationship in aui_dict["relationships"]:

@@ -5,6 +5,7 @@ import json
 import os
 import string
 import codecs
+import csv
 
 class RRFReader(object):
     """A generalized class for reading RRF files. Requires a dict which which has column
@@ -68,7 +69,6 @@ def transform_to_url(string_to_transform):
     return s2
 
 
-
 class UMLSJsonToISFSKOS(object):
     """A class for transform JSON extracted from RRF files from the UMLS into a SKOS ISF compatible format"""
     def __init__(self, aui_json_file_name, sab_json_file_name="sab_umls.json"):
@@ -101,6 +101,7 @@ class UMLSJsonToISFSKOS(object):
         self.skosxl_literal_form = self.prefixes["skosxl"] + "literal_form"
 
         self._load_json_files()
+        self._generate_helper_dicts()
 
     def _load_json_files(self):
         with open(self.aui_json_file_name) as fj:
@@ -108,6 +109,10 @@ class UMLSJsonToISFSKOS(object):
 
         with open(self.sab_json_file_name) as fj:
             self.sab_dict = json.load(fj)
+
+    def _generate_helper_dicts(self):
+        self.cui_dict = self.dict_by_umls_cui(self.umls_dict)
+        self.code_dict = self.dict_by_source_code(self.umls_dict)
 
     def set_broader_relationship_field(self, key="REL", value="PAR"):
         self.broader_key = key
@@ -213,6 +218,52 @@ class UMLSJsonToISFSKOS(object):
     def set_aui_external_uri(self, uri):
         self.aui_external_uri = uri
 
+    def dict_by_umls_cui(self, aui_dict):
+
+        cui_dict = {}
+        for aui in aui_dict:
+            cui = aui_dict[aui]["CUI"]
+            if cui in cui_dict:
+                cui_dict[cui] += [aui]
+            else:
+                cui_dict[cui] = [aui]
+
+        return cui_dict
+
+    def dict_by_source_code(self, aui_dict):
+        code_dict = {}
+        for aui in aui_dict:
+            code = aui_dict[aui]["CODE"]
+            if code in code_dict:
+                code_dict[code] += [aui]
+            else:
+                code_dict[code] = [aui]
+
+        return code_dict
+
+
+class UMLS2SKOSCrossVocabulary(object):
+    """
+        Creates mapping files in SKOS and annotations to original SKOS file based on a mapping file
+    """
+
+    def __init__(self, mapping_file, umls_skos_obj_from, umls_skos_obj_to, source_code = "S_CODE", destination_code = "Post_Code", source_cui = "S_CUI"):
+        self.mapping_file = mapping_file
+        self.umls_skos_obj_from = umls_skos_obj_to
+        self.umls_skos_obj_to = umls_skos_obj_from
+
+    def _load_mapping_file(self):
+        with open(self.mapping_file, "r") as f:
+            self.mapping_file_read = csv.DictReader(f)
+
+        self.mapping_aui_dict = {}
+        for data in self.mapping_file_read:
+            aui = data["AUI"]
+
+
+    def write_out_file(self):
+        pass
+
 
 def publish_icd9cm(umls_directory="../extract/UMLSMicro2012AB/", refresh_json_file=False):
     sab = "ICD9CM"
@@ -242,8 +293,6 @@ def publish_icd9cm(umls_directory="../extract/UMLSMicro2012AB/", refresh_json_fi
     icd9_isf_obj.register_transform_code_function(transform_to_url)
     icd9_isf_obj.set_broader_relationship_field("REL", "PAR")
     icd9_isf_obj.write_to_out_file("../output/" + sab + "_isf_skos.nt")
-
-
 
 def generate_sab_json(umls_directory):
     """Filters SAB list by "SABIN" = 'Y' and creates a dict based on the "RSAB" version"""

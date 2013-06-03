@@ -7,6 +7,7 @@ import string
 import codecs
 import csv
 
+
 class RRFReader(object):
     """A generalized class for reading RRF files. Requires a dict which which has column
     positions, e.g., {0 : "CUI",1 : "STR"}"""
@@ -25,7 +26,6 @@ class RRFReader(object):
         return self
 
     def next(self):
-
         try:
             line = self.fp.next()
             split_line = line.rstrip().split(self.delimiter)
@@ -37,7 +37,6 @@ class RRFReader(object):
                     cell_value = None
 
                 rrf_dictionary[self.column_position[i]] = cell_value
-
                 i += 1
 
             return rrf_dictionary
@@ -62,10 +61,9 @@ def read_file_layout(file_name):
 
 
 def transform_to_url(string_to_transform):
-
+    """Transform a string to be more URL friendly"""
     s1 = string.join(string_to_transform.split("."),"_")
     s2 = string.join(s1.split(),"_")
-
     return s2
 
 
@@ -121,8 +119,8 @@ class UMLSJsonToISFSKOS(object):
     def set_schema_version_from_sab(self):
          self.concept_version_abbreviation = self.sab_dict[self.concept_abbreviation]["SVER"]
 
-    def set_base_url(self, url="http://purl.obolibrary.org/obo/arg/skos/"):
-        self.base_url = url
+    def set_base_uri(self, uri="http://purl.obolibrary.org/obo/arg/skos/"):
+        self.base_uri = uri
 
     def set_concept_abbreviation(self, concept_abbreviation):
         self.concept_abbreviation = concept_abbreviation
@@ -134,35 +132,35 @@ class UMLSJsonToISFSKOS(object):
         self.umls_aui_base_uri = uri
 
     def schema_uri(self):
-        return self.base_url + "s_" + self.concept_abbreviation + "_" + self.concept_version_abbreviation
+        return self.base_uri + "s_" + self.concept_abbreviation + "_" + self.concept_version_abbreviation
 
     def code_base_uri(self):
-        return self.base_url + "c_" + self.concept_abbreviation
+        return self.base_uri + "c_" + self.concept_abbreviation
 
     def literal_base_uri(self):
-        return self.base_url + "l_" + self.concept_abbreviation
+        return self.base_uri + "l_" + self.concept_abbreviation
 
     def register_transform_code_function(self, transform_code_function):
         self.transform_code_function = transform_code_function
 
     def code_data_type(self):
-        return self.base_url + "dt_" + self.concept_abbreviation
+        return self.base_uri + "dt_" + self.concept_abbreviation
 
     def concept_uri(self,code):
         code_transformed = self.transform_code_function(code)
-        return self.base_url + "c_" + self.concept_abbreviation + "_" + code_transformed
+        return self.base_uri + "c_" + self.concept_abbreviation + "_" + code_transformed
 
     def umls_cui_data_type(self):
-        return self.base_url + "dt_umls_cui"
+        return self.base_uri + "dt_umls_cui"
 
     def umls_aui_data_type(self):
-        return self.base_url + "dt_umls_aui"
+        return self.base_uri + "dt_umls_aui"
 
     def umls_sui_uri(self, sui):
-        return self.base_url + "l_" + self.concept_abbreviation + "_" + sui
+        return self.base_uri + "l_" + self.concept_abbreviation + "_" + sui
 
     def write_to_out_file(self, file_name="skos_output.nt"):
-        sui_dict = {} # TODO: For SUIs do not create duplicates
+        sui_dict = {}  #TODO: For SUIs do not create duplicates
         with codecs.open(file_name, "w", "utf-8") as ft:
 
             ft.write("<%s> <%s> <%s> . \n" % (self.schema_uri(), self.rdf_type, self.skos_concept_scheme))
@@ -227,7 +225,6 @@ class UMLSJsonToISFSKOS(object):
                 cui_dict[cui] += [aui]
             else:
                 cui_dict[cui] = [aui]
-
         return cui_dict
 
     def dict_by_source_code(self, aui_dict):
@@ -260,7 +257,6 @@ class UMLS2SKOSCrossVocabulary(object):
         for data in self.mapping_file_read:
             aui = data["AUI"]
 
-
     def write_out_file(self):
         pass
 
@@ -286,7 +282,7 @@ def publish_icd9cm(umls_directory="../extract/UMLSMicro2012AB/", refresh_json_fi
 
     icd9_isf_obj = UMLSJsonToISFSKOS(aui_json_file_path, sab_json_file_path)
 
-    icd9_isf_obj.set_base_url(icd9_isf_obj.prefixes["arg"] + "skos/")
+    icd9_isf_obj.set_base_uri(icd9_isf_obj.prefixes["arg"] + "skos/")
     icd9_isf_obj.set_concept_abbreviation(sab)
     icd9_isf_obj.set_schema_version_from_sab()
     icd9_isf_obj.set_aui_external_uri("http://link.informatics.stonybrook.edu/umls/AUI/")
@@ -401,7 +397,6 @@ def extract_umls_subset_to_json(umls_directory, SAB="ICD9CM", term_types=["HT", 
         json.dump(aui_subset, fw)
 
     return sab_umls_json
-
 
 def main():
     publish_icd9cm(refresh_json_file=False)

@@ -235,7 +235,6 @@ class UMLSJsonToISFSKOS(object):
                 code_dict[code] += [aui]
             else:
                 code_dict[code] = [aui]
-
         return code_dict
 
 
@@ -261,12 +260,15 @@ class UMLS2SKOSCrossVocabulary(object):
         pass
 
 
-def publish_icd9cm(umls_directory="../extract/UMLSMicro2012AB/", refresh_json_file=False):
-    sab = "ICD9CM"
+def publish_single_source_vocabulary(umls_directory="../extract/UMLSMicro2012AB/", sab="ICD9CM",
+                                     refresh_json_file=False, tty_list=["HT", "PT"],
+                                     hierarchal_relationships = ("REL", "PAR")):
+
+    relationship_type, relationship_attribute = hierarchal_relationships
+
     aui_json_file_name = sab + "_umls.json"
     aui_json_file_path = os.path.join(umls_directory, aui_json_file_name)
     refresh = False
-    tty_list = ["HT", "PT"]
 
     sab_json_file_name = "sab_umls.json"
     sab_json_file_path = os.path.join(umls_directory, sab_json_file_name)
@@ -287,7 +289,7 @@ def publish_icd9cm(umls_directory="../extract/UMLSMicro2012AB/", refresh_json_fi
     icd9_isf_obj.set_schema_version_from_sab()
     icd9_isf_obj.set_aui_external_uri("http://link.informatics.stonybrook.edu/umls/AUI/")
     icd9_isf_obj.register_transform_code_function(transform_to_url)
-    icd9_isf_obj.set_broader_relationship_field("REL", "PAR")
+    icd9_isf_obj.set_broader_relationship_field(relationship_type, relationship_attribute)
     icd9_isf_obj.write_to_out_file("../output/" + sab + "_isf_skos.nt")
 
 def generate_sab_json(umls_directory):
@@ -398,8 +400,18 @@ def extract_umls_subset_to_json(umls_directory, SAB="ICD9CM", term_types=["HT", 
 
     return sab_umls_json
 
+
+def publish_icd9cm(refresh_json_file):
+    publish_single_source_vocabulary(sab="ICD9CM", refresh_json_file=refresh_json_file)
+
+
+def publish_nci(refresh_json_file):
+    publish_single_source_vocabulary(sab="NCI", hierarchal_relationships=("RELA", "inverse_isa"), refresh_json_file=refresh_json_file)
+
+
 def main():
-    publish_icd9cm(refresh_json_file=False)
+    #publish_icd9cm(refresh_json_file=False)
+    publish_nci(refresh_json_file=False)
 
 if __name__ == "__main__":
     main()

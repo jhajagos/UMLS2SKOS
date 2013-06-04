@@ -217,7 +217,6 @@ class UMLSJsonToISFSKOS(object):
         self.aui_external_uri = uri
 
     def dict_by_umls_cui(self, aui_dict):
-
         cui_dict = {}
         for aui in aui_dict:
             cui = aui_dict[aui]["CUI"]
@@ -256,8 +255,11 @@ class UMLS2SKOSCrossVocabulary(object):
         for data in self.mapping_file_read:
             aui = data["AUI"]
 
-    def write_out_file(self):
-        pass
+    def write_out_annotation_file(self):
+        """Write out annotations on each side of the relationship showing common mapping points"""
+
+    def write_out_isf_mapping_file(self):
+        """"""
 
 
 def publish_single_source_vocabulary(umls_directory="../extract/UMLSMicro2012AB/", sab="ICD9CM",
@@ -282,15 +284,17 @@ def publish_single_source_vocabulary(umls_directory="../extract/UMLSMicro2012AB/
     if refresh:
         extract_umls_subset_to_json(umls_directory, sab, tty_list)
 
-    icd9_isf_obj = UMLSJsonToISFSKOS(aui_json_file_path, sab_json_file_path)
+    sab_isf_obj = UMLSJsonToISFSKOS(aui_json_file_path, sab_json_file_path)
 
-    icd9_isf_obj.set_base_uri(icd9_isf_obj.prefixes["arg"] + "skos/")
-    icd9_isf_obj.set_concept_abbreviation(sab)
-    icd9_isf_obj.set_schema_version_from_sab()
-    icd9_isf_obj.set_aui_external_uri("http://link.informatics.stonybrook.edu/umls/AUI/")
-    icd9_isf_obj.register_transform_code_function(transform_to_url)
-    icd9_isf_obj.set_broader_relationship_field(relationship_type, relationship_attribute)
-    icd9_isf_obj.write_to_out_file("../output/" + sab + "_isf_skos.nt")
+    sab_isf_obj.set_base_uri(sab_isf_obj.prefixes["arg"] + "skos/")
+    sab_isf_obj.set_concept_abbreviation(sab)
+    sab_isf_obj.set_schema_version_from_sab()
+    sab_isf_obj.set_aui_external_uri("http://link.informatics.stonybrook.edu/umls/AUI/")
+    sab_isf_obj.register_transform_code_function(transform_to_url)
+    sab_isf_obj.set_broader_relationship_field(relationship_type, relationship_attribute)
+    sab_isf_obj.write_to_out_file("../output/" + sab + "_isf_skos.nt")
+    
+    return sab_isf_obj
 
 def generate_sab_json(umls_directory):
     """Filters SAB list by "SABIN" = 'Y' and creates a dict based on the "RSAB" version"""
@@ -400,18 +404,24 @@ def extract_umls_subset_to_json(umls_directory, SAB="ICD9CM", term_types=["HT", 
 
     return sab_umls_json
 
-
 def publish_icd9cm(refresh_json_file):
-    publish_single_source_vocabulary(sab="ICD9CM", refresh_json_file=refresh_json_file)
-
+    return publish_single_source_vocabulary(sab="ICD9CM", refresh_json_file=refresh_json_file)
 
 def publish_nci(refresh_json_file):
-    publish_single_source_vocabulary(sab="NCI", hierarchal_relationships=("RELA", "inverse_isa"), refresh_json_file=refresh_json_file)
+    return publish_single_source_vocabulary(sab="NCI", hierarchal_relationships=("RELA", "inverse_isa"), refresh_json_file=refresh_json_file)
 
+def connect_vocabularies(mapping_file_name, umls_skos_obj_from, umls_skos_obj_to):
+    cross_vocab_obj = UMLS2SKOSCrossVocabulary(mapping_file_name, umls_skos_obj_from, umls_skos_obj_to)
+    cross_vocab_obj.write_out_annotation_file()
+    cross_vocab_obj.write_out_isf_mapping_file()
+
+def mapping_to_icd9cm_to_nci():
+    icd9cm_isf = publish_icd9cm(False)
+    nci_isf = publish_nci(False)
 
 def main():
     #publish_icd9cm(refresh_json_file=False)
-    publish_nci(refresh_json_file=False)
+    publish_nci(refresh_json_file=True)
 
 if __name__ == "__main__":
     main()

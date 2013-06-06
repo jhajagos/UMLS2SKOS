@@ -87,7 +87,7 @@ class UMLSJsonToISFSKOS(object):
 
         #SKOS URIs
         self.skos_concept = self.prefixes["skos"] + "Concept"
-        self.skos_is_in_scheme = self.prefixes["skos"] + "is_in_scheme"
+        self.skos_is_in_scheme = self.prefixes["skos"] + "inScheme"
         self.skos_concept_scheme = self.prefixes["skos"] + "ConceptScheme"
         #self.skos_is_top_in_scheme = self.prefixes["skos"] + "is_in_top_scheme"
         self.skos_notation = self.prefixes["skos"] + "notation"
@@ -120,7 +120,7 @@ class UMLSJsonToISFSKOS(object):
         self.broader_value = value
 
     def set_schema_version_from_sab(self):
-         self.concept_version_abbreviation = self.sab_dict[self.concept_abbreviation]["SVER"]
+        self.concept_version_abbreviation = self.sab_dict[self.concept_abbreviation]["SVER"]
 
     def set_base_uri(self, uri="http://purl.obolibrary.org/obo/arg/skos/"):
         self.base_uri = uri

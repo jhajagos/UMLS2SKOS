@@ -96,7 +96,7 @@ class UMLSJsonToISFSKOS(object):
         self.skos_collection = self.prefixes["skos"] + "Collection"
         self.skos_has_member = self.prefixes["skos"] + "member"
         self.skos_broad_match = self.prefixes["skos"] + "broadMatch"
-        self.skos_approximate_match = self.prefixes["skos"] + "approximateMatch"
+        self.skos_close_match = self.prefixes["skos"] + "closeMatch"
 
         #SKOSXL
         self.skosxl_literal_form = self.prefixes["skosxl"] + "literalForm"
@@ -343,7 +343,7 @@ class UMLS2SKOSCrossVocabulary(object):
                 uri_mapped_to = self.umls_skos_obj_to.concept_uri(to_code)
 
                 if is_approximate_match:
-                    predicate_uri = self.umls_skos_obj_from.skos_approximate_match
+                    predicate_uri = self.umls_skos_obj_from.skos_close_match
                 else:
                     predicate_uri = self.umls_skos_obj_to.skos_broad_match
 

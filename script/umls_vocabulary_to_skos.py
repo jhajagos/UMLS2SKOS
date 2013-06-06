@@ -6,6 +6,7 @@ import os
 import string
 import codecs
 import csv
+import sets
 
 
 class RRFReader(object):
@@ -87,16 +88,18 @@ class UMLSJsonToISFSKOS(object):
         #SKOS URIs
         self.skos_concept = self.prefixes["skos"] + "Concept"
         self.skos_is_in_scheme = self.prefixes["skos"] + "is_in_scheme"
-        self.skos_concept_scheme = self.prefixes["skos"] + "Concept_Scheme"
-        self.skos_is_top_in_scheme = self.prefixes["skos"] + "is_in_top_scheme"
+        self.skos_concept_scheme = self.prefixes["skos"] + "ConceptScheme"
+        #self.skos_is_top_in_scheme = self.prefixes["skos"] + "is_in_top_scheme"
         self.skos_notation = self.prefixes["skos"] + "notation"
         self.skos_broader = self.prefixes["skos"] + "broader"
-        self.skos_preferred_label = self.prefixes["skos"] + "preferred_label"
+        self.skos_preferred_label = self.prefixes["skos"] + "prefLabel"
         self.skos_collection = self.prefixes["skos"] + "Collection"
         self.skos_has_member = self.prefixes["skos"] + "member"
+        self.skos_broad_match = self.prefixes["skos"] + "broadMatch"
+        self.skos_approximate_match = self.prefixes["skos"] + "approximateMatch"
 
         #SKOSXL
-        self.skosxl_literal_form = self.prefixes["skosxl"] + "literal_form"
+        self.skosxl_literal_form = self.prefixes["skosxl"] + "literalForm"
 
         self._load_json_files()
         self._generate_helper_dicts()
@@ -146,9 +149,14 @@ class UMLSJsonToISFSKOS(object):
     def code_data_type(self):
         return self.base_uri + "dt_" + self.concept_abbreviation
 
-    def concept_uri(self,code):
+    def concept_uri(self, code):
         code_transformed = self.transform_code_function(code)
         return self.base_uri + "c_" + self.concept_abbreviation + "_" + code_transformed
+
+    def concept_uri_from_aui(self, aui):
+        data = self.umls_dict[aui]
+        code = data["CODE"]
+        return self.concept_uri(code)
 
     def umls_cui_data_type(self):
         return self.base_uri + "dt_umls_cui"
@@ -244,27 +252,107 @@ class UMLS2SKOSCrossVocabulary(object):
 
     def __init__(self, mapping_file, umls_skos_obj_from, umls_skos_obj_to, source_code = "S_CODE", destination_code = "Post_Code", source_cui = "S_CUI"):
         self.mapping_file = mapping_file
-        self.umls_skos_obj_from = umls_skos_obj_to
-        self.umls_skos_obj_to = umls_skos_obj_from
+        self.umls_skos_obj_from = umls_skos_obj_from
+        self.umls_skos_obj_to = umls_skos_obj_to
+
+        self._load_mapping_file()
+        self._generate_dictionaries()
+
+    def _generate_dictionaries(self):
+        self.umls_cui_from = self.umls_skos_obj_from.dict_by_umls_cui(self.umls_skos_obj_from.umls_dict)
+        self.umls_cui_to = self.umls_skos_obj_to.dict_by_umls_cui(self.umls_skos_obj_to.umls_dict)
+
+        self.code_from = self.umls_skos_obj_from.dict_by_source_code(self.umls_skos_obj_from.umls_dict)
+        self.code_to = self.umls_skos_obj_to.dict_by_source_code(self.umls_skos_obj_to.umls_dict)
 
     def _load_mapping_file(self):
         with open(self.mapping_file, "r") as f:
-            self.mapping_file_read = csv.DictReader(f)
+            self.mapping_file_read = list(csv.DictReader(f))
 
-        self.mapping_aui_dict = {}
-        for data in self.mapping_file_read:
-            aui = data["AUI"]
-
-    def write_out_annotation_file(self):
+    def write_out_annotation_files(self, directory="../output/"):
         """Write out annotations on each side of the relationship showing common mapping points"""
 
-    def write_out_isf_mapping_file(self):
-        """"""
+        full_directory = os.path.abspath(directory)
+        sab_from = self.umls_skos_obj_from.concept_abbreviation
+        sab_to = self.umls_skos_obj_to.concept_abbreviation
+
+        from_full_file_name = os.path.join(full_directory, sab_from + "_annotations_with_" + sab_to + ".nt")
+        to_full_file_name = os.path.join(full_directory, sab_to + "_annotations_with_" + sab_from + ".nt")
+
+        set_cuis_from = sets.Set(self.umls_cui_from)
+        set_cuis_to = sets.Set(self.umls_cui_to)
+
+        set_cuis = set_cuis_from.intersection(set_cuis_to)
+
+        ff = open(from_full_file_name, "w")
+        ft = open(to_full_file_name, "w")
+
+        for cui in set_cuis:
+            auis_from = self.umls_cui_from[cui]
+            auis_to = self.umls_cui_to[cui]
+
+            for aui_from in auis_from:  # Generate the annotations for the from side
+                aui_from_uri = self.umls_skos_obj_from.concept_uri_from_aui(aui_from)
+                code_list = []
+                for aui_to in auis_to:
+                    code_list.append(self.umls_skos_obj_to.umls_dict[aui_to]["CODE"])
+
+                data_type_uri = self.umls_skos_obj_to.code_data_type()
+
+                for code in code_list:
+                    ff.write('<%s> <%s> "%s"^^<%s> . \n' % (aui_from_uri, self.umls_skos_obj_from.skos_notation, code,
+
+                                                            data_type_uri))
+
+            for aui_to in auis_to: # Generate annotations in the other direction
+                aui_to_uri = self.umls_skos_obj_to.concept_uri_from_aui(aui_to)
+                code_list = []
+                for aui_from in auis_from:
+                    code_list.append(self.umls_skos_obj_from.umls_dict[aui_from]["CODE"])
+
+                data_type_uri = self.umls_skos_obj_from.code_data_type()
+
+                for code in code_list:
+                    ft.write('<%s> <%s> "%s"^^<%s> . \n' % (aui_to_uri, self.umls_skos_obj_to.skos_notation, code,
+                                                            data_type_uri))
+
+        ff.close()
+        ft.close()
+
+    def write_out_isf_mapping_file(self, directory="../output/"):
+        """Write out relationships mapping from one file to another file using a direction"""
+
+        full_directory = os.path.abspath(directory)
+
+        sab_from = self.umls_skos_obj_from.concept_abbreviation
+        sab_to = self.umls_skos_obj_to.concept_abbreviation
+
+        mapping_file_name = sab_from + "_mapped_to_" + sab_to + ".nt"
+        mapping_full_file_name = os.path.join(full_directory, mapping_file_name)
+
+        with open(mapping_full_file_name, "w") as f:
+            for mapping in self.mapping_file_read:
+                if mapping["S_CUI"] == mapping["Post_CUI"]:
+                    is_approximate_match = True
+                else:
+                    is_approximate_match = False
+
+                from_code = mapping["S_Code"]
+                to_code = mapping["Post_Code"]
+                uri_mapped_from = self.umls_skos_obj_from.concept_uri(from_code)
+                uri_mapped_to = self.umls_skos_obj_to.concept_uri(to_code)
+
+                if is_approximate_match:
+                    predicate_uri = self.umls_skos_obj_from.skos_approximate_match
+                else:
+                    predicate_uri = self.umls_skos_obj_to.skos_broad_match
+
+                f.write("<%s> <%s> <%s> . \n" % (uri_mapped_from, predicate_uri, uri_mapped_to))
 
 
 def publish_single_source_vocabulary(umls_directory="../extract/UMLSMicro2012AB/", sab="ICD9CM",
                                      refresh_json_file=False, tty_list=["HT", "PT"],
-                                     hierarchal_relationships = ("REL", "PAR")):
+                                     hierarchal_relationships=("REL", "PAR")):
 
     relationship_type, relationship_attribute = hierarchal_relationships
 
@@ -295,6 +383,7 @@ def publish_single_source_vocabulary(umls_directory="../extract/UMLSMicro2012AB/
     sab_isf_obj.write_to_out_file("../output/" + sab + "_isf_skos.nt")
     
     return sab_isf_obj
+
 
 def generate_sab_json(umls_directory):
     """Filters SAB list by "SABIN" = 'Y' and creates a dict based on the "RSAB" version"""
@@ -404,24 +493,32 @@ def extract_umls_subset_to_json(umls_directory, SAB="ICD9CM", term_types=["HT", 
 
     return sab_umls_json
 
+
 def publish_icd9cm(refresh_json_file):
     return publish_single_source_vocabulary(sab="ICD9CM", refresh_json_file=refresh_json_file)
+
 
 def publish_nci(refresh_json_file):
     return publish_single_source_vocabulary(sab="NCI", hierarchal_relationships=("RELA", "inverse_isa"), refresh_json_file=refresh_json_file)
 
+
 def connect_vocabularies(mapping_file_name, umls_skos_obj_from, umls_skos_obj_to):
     cross_vocab_obj = UMLS2SKOSCrossVocabulary(mapping_file_name, umls_skos_obj_from, umls_skos_obj_to)
-    cross_vocab_obj.write_out_annotation_file()
+    cross_vocab_obj.write_out_annotation_files()
     cross_vocab_obj.write_out_isf_mapping_file()
+
 
 def mapping_to_icd9cm_to_nci():
     icd9cm_isf = publish_icd9cm(False)
     nci_isf = publish_nci(False)
 
+    connect_vocabularies("../mappings/icd_to_nci_fast_trans.csv", icd9cm_isf, nci_isf)
+
 def main():
     #publish_icd9cm(refresh_json_file=False)
-    publish_nci(refresh_json_file=True)
+    #publish_nci(refresh_json_file=True)
+
+    mapping_to_icd9cm_to_nci()
 
 if __name__ == "__main__":
     main()

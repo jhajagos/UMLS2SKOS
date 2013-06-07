@@ -92,11 +92,13 @@ class UMLSJsonToISFSKOS(object):
         #self.skos_is_top_in_scheme = self.prefixes["skos"] + "is_in_top_scheme"
         self.skos_notation = self.prefixes["skos"] + "notation"
         self.skos_broader = self.prefixes["skos"] + "broader"
+        self.skos_narrower = self.prefixes["skos"] + "narrower"
         self.skos_preferred_label = self.prefixes["skos"] + "prefLabel"
         self.skos_collection = self.prefixes["skos"] + "Collection"
         self.skos_has_member = self.prefixes["skos"] + "member"
         self.skos_broad_match = self.prefixes["skos"] + "broadMatch"
         self.skos_close_match = self.prefixes["skos"] + "closeMatch"
+        self.skos_definition = self.prefixes["skos"] + "definition"
 
         #SKOSXL
         self.skosxl_literal_form = self.prefixes["skosxl"] + "literalForm"
@@ -203,6 +205,11 @@ class UMLSJsonToISFSKOS(object):
                     ntriples += "<%s> <%s> <%s> .\n" % (sui_uri, self.rdf_type, self.skosxl_literal_form)
                     ntriples += '<%s> <%s> "%s"@en .\n' % (sui_uri, self.rdfs_label, self._escape_literal(label))
 
+                if "definition" in aui_dict:
+                    definition = aui_dict["definition"]
+                    ntriples += '<%s> <%s> "%s"@en .' % (concept_uri, self.skos_definition,
+                                                         self._escape_literal(definition))
+
                 if "relationships" in aui_dict:
                     for relationship in aui_dict["relationships"]:
                         if relationship[self.broader_key] == self.broader_value:
@@ -213,6 +220,8 @@ class UMLSJsonToISFSKOS(object):
                                     concept_uri_to_link_to = self.concept_uri(aui_to_link_to["CODE"])
                                     ntriples += '<%s> <%s> <%s> . \n' % (concept_uri, self.skos_broader,
                                                                          concept_uri_to_link_to)
+                                    ntriples += '<%s> <%s> <%s> . \n' % (concept_uri_to_link_to, self.skos_narrower,
+                                                                         concept_uri)
 
                 ft.write(ntriples)
 
@@ -485,6 +494,31 @@ def extract_umls_subset_to_json(umls_directory, SAB="ICD9CM", term_types=["HT", 
 
     print("Extracted %s attributes from a total of %s" % (n, m))
 
+    mrdef_rrf  = "MRDEF.RRF"
+    mrdef_file_layout = file_layout[mrdef_rrf]
+    mrdef_rrf_file_name = os.path.join(umls_directory, mrdef_rrf)
+    mrdef = RRFReader(mrdef_rrf_file_name, mrdef_file_layout)
+
+    o = 0
+    r = 0
+    s = 0
+
+    for definition in mrdef:
+
+        sab = definition["SAB"]
+        if sab == SAB:
+            aui = definition["AUI"]
+            definition = definition["DEF"]
+            if aui in aui_subset:
+                aui_subset[aui]["definition"] = definition
+            else:
+                s += 1
+            r += 1
+        o += 1
+
+    print("Extracted %s definitions from a total of %s" % (o, r))
+    print("Some AUIs could not be mapped %s" % s)
+
     print("Writing json file")
 
     sab_umls_json = os.path.join(umls_directory, SAB + "_umls" + ".json")
@@ -499,7 +533,8 @@ def publish_icd9cm(refresh_json_file):
 
 
 def publish_nci(refresh_json_file):
-    return publish_single_source_vocabulary(sab="NCI", hierarchal_relationships=("RELA", "inverse_isa"), refresh_json_file=refresh_json_file)
+    return publish_single_source_vocabulary(sab="NCI", hierarchal_relationships=("RELA", "inverse_isa"),
+                                            refresh_json_file=refresh_json_file)
 
 
 def connect_vocabularies(mapping_file_name, umls_skos_obj_from, umls_skos_obj_to):
@@ -515,9 +550,8 @@ def mapping_to_icd9cm_to_nci():
     connect_vocabularies("../mappings/icd_to_nci_fast_trans.csv", icd9cm_isf, nci_isf)
 
 def main():
-    #publish_icd9cm(refresh_json_file=False)
-    #publish_nci(refresh_json_file=True)
-
+    publish_icd9cm(refresh_json_file=False)
+    publish_nci(refresh_json_file=False)
     mapping_to_icd9cm_to_nci()
 
 if __name__ == "__main__":

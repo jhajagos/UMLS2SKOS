@@ -89,7 +89,7 @@ class UMLSJsonToISFSKOS(object):
         self.skos_concept = self.prefixes["skos"] + "Concept"
         self.skos_is_in_scheme = self.prefixes["skos"] + "inScheme"
         self.skos_concept_scheme = self.prefixes["skos"] + "ConceptScheme"
-        #self.skos_is_top_in_scheme = self.prefixes["skos"] + "is_in_top_scheme"
+        self.skos_has_top_concept = self.prefixes["skos"] + "hasTopScheme"
         self.skos_notation = self.prefixes["skos"] + "notation"
         self.skos_broader = self.prefixes["skos"] + "broader"
         self.skos_narrower = self.prefixes["skos"] + "narrower"
@@ -175,6 +175,9 @@ class UMLSJsonToISFSKOS(object):
 
             ft.write("<%s> <%s> <%s> . \n" % (self.schema_uri(), self.rdf_type, self.skos_concept_scheme))
 
+            auis_left_relationship = []
+            auis_right_relationship = []
+
             for aui in self.umls_dict.keys():
                 aui_dict = self.umls_dict[aui]
                 code = aui_dict["CODE"]
@@ -222,8 +225,19 @@ class UMLSJsonToISFSKOS(object):
                                                                          concept_uri_to_link_to)
                                     ntriples += '<%s> <%s> <%s> . \n' % (concept_uri_to_link_to, self.skos_narrower,
                                                                          concept_uri)
-
+                                    auis_left_relationship.append(aui)
+                                    auis_right_relationship.append(aui_code_to_link_to)
                 ft.write(ntriples)
+
+            set_left = sets.Set(auis_left_relationship)
+            set_right = sets.Set(auis_right_relationship)
+
+            top_auis = set_right - set_left
+
+            for top_aui in top_auis:
+                top_concept_uri = self.concept_uri_from_aui(top_aui)
+                ntriples += "<%s> <%s> <%s> .\n" % (self.schema_uri(), self.skos_has_top_concept, top_concept_uri)
+            ft.write(ntriples)
 
     def _escape_literal(self, literal):
         if '"' in literal:
@@ -255,9 +269,7 @@ class UMLSJsonToISFSKOS(object):
 
 
 class UMLS2SKOSCrossVocabulary(object):
-    """
-        Creates mapping files in SKOS and annotations to original SKOS file based on a mapping file
-    """
+    """Creates mapping files in SKOS and annotations to original SKOS file based on a mapping file"""
 
     def __init__(self, mapping_file, umls_skos_obj_from, umls_skos_obj_to, source_code = "S_CODE", destination_code = "Post_Code", source_cui = "S_CUI"):
         self.mapping_file = mapping_file
@@ -494,7 +506,7 @@ def extract_umls_subset_to_json(umls_directory, SAB="ICD9CM", term_types=["HT", 
 
     print("Extracted %s attributes from a total of %s" % (n, m))
 
-    mrdef_rrf  = "MRDEF.RRF"
+    mrdef_rrf = "MRDEF.RRF"
     mrdef_file_layout = file_layout[mrdef_rrf]
     mrdef_rrf_file_name = os.path.join(umls_directory, mrdef_rrf)
     mrdef = RRFReader(mrdef_rrf_file_name, mrdef_file_layout)
@@ -544,10 +556,13 @@ def connect_vocabularies(mapping_file_name, umls_skos_obj_from, umls_skos_obj_to
 
 
 def mapping_to_icd9cm_to_nci():
+    print("Publishing ICD9")
     icd9cm_isf = publish_icd9cm(False)
+    print("Publishing NCI")
     nci_isf = publish_nci(False)
 
     connect_vocabularies("../mappings/icd_to_nci_fast_trans.csv", icd9cm_isf, nci_isf)
+
 
 def main():
     publish_icd9cm(refresh_json_file=False)

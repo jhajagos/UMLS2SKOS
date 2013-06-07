@@ -79,7 +79,13 @@ class UMLSJsonToISFSKOS(object):
                          "arg" : "http://purl.obolibrary.org/obo/arg/",
                          "rdfs" : "http://www.w3.org/2000/01/rdf-schema#",
                          "owl" : "http://www.w3.org/2002/07/owl#",
-                         "skosxl" : "http://www.w3.org/2008/05/skos-xl#"}
+                         "skosxl" : "http://www.w3.org/2008/05/skos-xl#",
+                         "dc" : "http://purl.org/dc/terms/"
+        }
+
+        self.dc_subject = self.prefixes["dc"] + "subject"
+        self.dc_title = self.prefixes["dc"] + "title"
+        self.dc_creator = self.prefixes["dc"] + "creator"
 
         self.rdf_type = self.prefixes["rdf"] + "type"
         self.rdfs_see_also = self.prefixes["rdfs"] + "seeAlso"
@@ -90,6 +96,7 @@ class UMLSJsonToISFSKOS(object):
         self.skos_is_in_scheme = self.prefixes["skos"] + "inScheme"
         self.skos_concept_scheme = self.prefixes["skos"] + "ConceptScheme"
         self.skos_has_top_concept = self.prefixes["skos"] + "hasTopConcept"
+        self.skos_top_concept_of = self.prefixes["skos"] + "topConceptOf"
         self.skos_notation = self.prefixes["skos"] + "notation"
         self.skos_broader = self.prefixes["skos"] + "broader"
         self.skos_narrower = self.prefixes["skos"] + "narrower"
@@ -136,7 +143,7 @@ class UMLSJsonToISFSKOS(object):
     def set_external_umls_base_uri(self, uri):
         self.umls_aui_base_uri = uri
 
-    def schema_uri(self):
+    def scheme_uri(self):
         return self.base_uri + "s_" + self.concept_abbreviation + "_" + self.concept_version_abbreviation
 
     def code_base_uri(self):
@@ -173,7 +180,14 @@ class UMLSJsonToISFSKOS(object):
         sui_dict = {}  #TODO: For SUIs do not create duplicates
         with codecs.open(file_name, "w", "utf-8") as ft:
 
-            ft.write("<%s> <%s> <%s> . \n" % (self.schema_uri(), self.rdf_type, self.skos_concept_scheme))
+            ft.write("<%s> <%s> <%s> . \n" % (self.scheme_uri(), self.rdf_type, self.skos_concept_scheme))
+            ft.write('<%s> <%s> "%s"@en . \n' % (self.scheme_uri(), self.dc_title,
+                                                 self._escape_literal(self.concept_abbreviation)))
+            ft.write('<%s> <%s> "%s"@en . \n' % (self.scheme_uri(), self.dc_subject, "Mapping UMLS vocabulary to SKOS"))
+            ft.write('<%s> <%s> "%s"@en . \n' % (self.scheme_uri(), self.dc_creator, "script"))
+
+            ft.write('<%s> <%s> "%s"@en . \n' % (self.scheme_uri(), self.rdfs_label,
+                                                 self._escape_literal(self.concept_abbreviation)))
 
             auis_left_relationship = []
             auis_right_relationship = []
@@ -188,7 +202,7 @@ class UMLSJsonToISFSKOS(object):
 
                 ntriples = ""
                 ntriples += "<%s> <%s> <%s> .\n" % (concept_uri, self.rdf_type, self.skos_concept)
-                ntriples += "<%s> <%s> <%s> . \n" % (concept_uri, self.skos_is_in_scheme, self.schema_uri())
+                ntriples += "<%s> <%s> <%s> . \n" % (concept_uri, self.skos_is_in_scheme, self.scheme_uri())
                 ntriples += '<%s> <%s> "%s"^^<%s> . \n' % (concept_uri, self.skos_notation,
                                                              self._escape_literal(code), self.code_data_type())
                 ntriples += '<%s> <%s> "%s"@en . \n' % (concept_uri, self.skos_preferred_label,
@@ -236,7 +250,8 @@ class UMLSJsonToISFSKOS(object):
 
             for top_aui in top_auis:
                 top_concept_uri = self.concept_uri_from_aui(top_aui)
-                ntriples += "<%s> <%s> <%s> .\n" % (self.schema_uri(), self.skos_has_top_concept, top_concept_uri)
+                ntriples += "<%s> <%s> <%s> .\n" % (self.scheme_uri(), self.skos_has_top_concept, top_concept_uri)
+                ntriples += "<%s> <%s> <%s> .\n" % (top_concept_uri, self.skos_top_concept_of, self.scheme_uri())
             ft.write(ntriples)
 
     def _escape_literal(self, literal):

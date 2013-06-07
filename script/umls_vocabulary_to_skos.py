@@ -89,7 +89,7 @@ class UMLSJsonToISFSKOS(object):
         self.skos_concept = self.prefixes["skos"] + "Concept"
         self.skos_is_in_scheme = self.prefixes["skos"] + "inScheme"
         self.skos_concept_scheme = self.prefixes["skos"] + "ConceptScheme"
-        self.skos_has_top_concept = self.prefixes["skos"] + "hasTopScheme"
+        self.skos_has_top_concept = self.prefixes["skos"] + "hasTopConcept"
         self.skos_notation = self.prefixes["skos"] + "notation"
         self.skos_broader = self.prefixes["skos"] + "broader"
         self.skos_narrower = self.prefixes["skos"] + "narrower"

@@ -1,5 +1,6 @@
 __author__ = 'janos'
 
+import sys
 import logging
 import json
 import os
@@ -386,13 +387,18 @@ class UMLS2SKOSCrossVocabulary(object):
                 f.write("<%s> <%s> <%s> . \n" % (uri_mapped_from, predicate_uri, uri_mapped_to))
 
 
-def publish_single_source_vocabulary(umls_directory="../extract/UMLSMicro2012AB/", sab="ICD9CM",
+def publish_source_vocabulary(umls_directory="../extract/UMLSMicro2012AB/", sab=["ICD9CM"],
                                      refresh_json_file=False, tty_list=["HT", "PT"],
                                      hierarchal_relationships=("REL", "PAR")):
 
+    if type(sab) != type ([]):
+        sab = [sab]
+
     relationship_type, relationship_attribute = hierarchal_relationships
 
-    aui_json_file_name = sab + "_umls.json"
+    sab_name = "_".join(sab)
+
+    aui_json_file_name = sab_name + "_umls.json"
     aui_json_file_path = os.path.join(umls_directory, aui_json_file_name)
     refresh = False
 
@@ -411,12 +417,12 @@ def publish_single_source_vocabulary(umls_directory="../extract/UMLSMicro2012AB/
     sab_isf_obj = UMLSJsonToISFSKOS(aui_json_file_path, sab_json_file_path)
 
     sab_isf_obj.set_base_uri(sab_isf_obj.prefixes["arg"] + "skos/")
-    sab_isf_obj.set_concept_abbreviation(sab)
+    sab_isf_obj.set_concept_abbreviation(sab_name)
     sab_isf_obj.set_schema_version_from_sab()
     sab_isf_obj.set_aui_external_uri("http://link.informatics.stonybrook.edu/umls/AUI/")
     sab_isf_obj.register_transform_code_function(transform_to_url)
     sab_isf_obj.set_broader_relationship_field(relationship_type, relationship_attribute)
-    sab_isf_obj.write_to_out_file("../output/" + sab + "_isf_skos.nt")
+    sab_isf_obj.write_to_out_file("../output/" + sab_name + "_isf_skos.nt")
     
     return sab_isf_obj
 
@@ -448,7 +454,7 @@ def generate_sab_json(umls_directory):
     return json_sab_file_path
 
 
-def extract_umls_subset_to_json(umls_directory, SAB="ICD9CM", term_types=["HT", "PT"]):
+def extract_umls_subset_to_json(umls_directory, SAB=["ICD9CM"], term_types=["HT", "PT"]):
     """Extract a source vocabulary from RRF and store as JSON"""
 
     print("Extracting source '%s' and term types %s" % (SAB, term_types))
@@ -469,7 +475,7 @@ def extract_umls_subset_to_json(umls_directory, SAB="ICD9CM", term_types=["HT", 
         tty = entry["TTY"]
         aui = entry["AUI"]
 
-        if sab == SAB:
+        if sab in SAB:
             if tty in term_types:
                 aui_subset[aui] = entry
                 j += 1
@@ -488,7 +494,7 @@ def extract_umls_subset_to_json(umls_directory, SAB="ICD9CM", term_types=["HT", 
         sab = relationship["SAB"]
         aui = relationship["AUI1"]
 
-        if sab == SAB:
+        if sab in SAB:
             if aui in aui_subset:
                 if "relationships" in aui_subset[aui]:
                     aui_subset[aui]["relationships"] += [relationship]
@@ -499,7 +505,7 @@ def extract_umls_subset_to_json(umls_directory, SAB="ICD9CM", term_types=["HT", 
 
     print("Extracted %s relationships from a total of %s" % (l, k))
 
-    mrsat_rrf  = "MRSAT.RRF"
+    mrsat_rrf = "MRSAT.RRF"
     mrsat_file_layout = file_layout[mrsat_rrf]
     mrsat_rrf_file_name = os.path.join(umls_directory, mrsat_rrf)
     mrsat = RRFReader(mrsat_rrf_file_name, mrsat_file_layout)
@@ -510,7 +516,7 @@ def extract_umls_subset_to_json(umls_directory, SAB="ICD9CM", term_types=["HT", 
         sab = attribute["SAB"]
         aui = attribute["METAUI"]
 
-        if sab == SAB:
+        if sab in SAB:
             if aui in aui_subset:
                 if "attributes" in aui_subset[aui]:
                     aui_subset[aui]["attributes"] += [attribute]
@@ -531,9 +537,8 @@ def extract_umls_subset_to_json(umls_directory, SAB="ICD9CM", term_types=["HT", 
     s = 0
 
     for definition in mrdef:
-
         sab = definition["SAB"]
-        if sab == SAB:
+        if sab in SAB:
             aui = definition["AUI"]
             definition = definition["DEF"]
             if aui in aui_subset:
@@ -555,13 +560,24 @@ def extract_umls_subset_to_json(umls_directory, SAB="ICD9CM", term_types=["HT", 
     return sab_umls_json
 
 
-def publish_icd9cm(refresh_json_file):
-    return publish_single_source_vocabulary(sab="ICD9CM", refresh_json_file=refresh_json_file)
-
-
-def publish_nci(refresh_json_file):
-    return publish_single_source_vocabulary(sab="NCI", hierarchal_relationships=("RELA", "inverse_isa"),
+def publish_icd9cm(umls_directory, refresh_json_file):
+    return publish_source_vocabulary(umls_directory, sab="ICD9CM", tty_list=["HT", "PT"], hierarchal_relationships=("REL", "PAR"),
                                             refresh_json_file=refresh_json_file)
+
+
+def publish_nci(umls_directory, refresh_json_file):
+    return publish_source_vocabulary(umls_directory, sab="NCI", hierarchal_relationships=("RELA", "inverse_isa"),
+                                            refresh_json_file=refresh_json_file)
+
+
+def publish_MeSH(umls_directory, refresh_json_file):
+    return publish_source_vocabulary(umls_directory, sab="MSH", tty_list=["MH"], hierarchal_relationships=("REL", "PAR"),
+                                            refresh_json_file=refresh_json_file)
+
+
+#TODO: We need to combine the CPT with MTHCH for the correct hierarchy
+def publish_CPT_MTHCH(umls_directory, refresh_json_file):
+    return publish_source_vocabulary(umls_directory, sab=["CPT", "MTHCH"], tty_list=["PT", "HT"], refresh_json_file=refresh_json_file)
 
 
 def connect_vocabularies(mapping_file_name, umls_skos_obj_from, umls_skos_obj_to):
@@ -570,19 +586,32 @@ def connect_vocabularies(mapping_file_name, umls_skos_obj_from, umls_skos_obj_to
     cross_vocab_obj.write_out_isf_mapping_file()
 
 
-def mapping_to_icd9cm_to_nci():
-    print("Publishing ICD9")
-    icd9cm_isf = publish_icd9cm(False)
-    print("Publishing NCI")
-    nci_isf = publish_nci(False)
-
-    connect_vocabularies("../mappings/icd_to_nci_fast_trans.csv", icd9cm_isf, nci_isf)
-
-
 def main():
-    publish_icd9cm(refresh_json_file=False)
-    publish_nci(refresh_json_file=False)
-    mapping_to_icd9cm_to_nci()
+    if len(sys.argv) == 1:
+        umls_directory = "../extract/UMLSMicro2012AB/"
+        refresh_json_file = False
+    elif len(sys.argv) >= 2:
+        refresh_flag = sys.argv[2]
+        if refresh_flag in ["T", "1", "TRUE", "True", "true"]:
+            refresh_json_file = True
+        else:
+            refresh_json_file = False
+
+        if len(sys.argv) > 2:
+            umls_directory = sys.argv[3]
+
+    icd9cm_isf = publish_icd9cm(umls_directory, refresh_json_file)
+    if len(sys.argv) <= 2:
+        nci_isf = publish_nci(umls_directory, refresh_json_file)
+        connect_vocabularies("../mappings/icd_to_nci_fast_trans.csv", icd9cm_isf, nci_isf)
+
+    else:
+        msh_isf = publish_MeSH(umls_directory, refresh_json_file)
+        connect_vocabularies("../mappings/ICD_to_MSH_fast_trans_with_header.csv", icd9cm_isf, msh_isf)
+        cpt_isf = publish_CPT_MTHCH(umls_directory, refresh_json_file)
+        #TODO: Complete mapping file this is just a stub
+        connect_vocabularies("../mapping/cpt_to_msh_fast_trans.csv", cpt_isf, msh_isf)
+
 
 if __name__ == "__main__":
     main()

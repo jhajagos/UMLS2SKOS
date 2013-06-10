@@ -130,7 +130,12 @@ class UMLSJsonToISFSKOS(object):
         self.broader_value = value
 
     def set_schema_version_from_sab(self):
-        self.concept_version_abbreviation = self.sab_dict[self.concept_abbreviation]["SVER"]
+        """Source"""
+        sources = self.concept_abbreviation.split()
+        concept_version = ""
+        for source in sources:
+            concept_version += "_" + self.sab_dict[self.concept_abbreviation]["SVER"]
+        self.concept_version_abbreviation = concept_version[1:]
 
     def set_base_uri(self, uri="http://purl.obolibrary.org/obo/arg/skos/"):
         self.base_uri = uri
@@ -551,7 +556,7 @@ def extract_umls_subset_to_json(umls_directory, SAB=["ICD9CM"], term_types=["HT"
             r += 1
         o += 1
 
-    print("Extracted %s definitions from a total of %s" % (o, r))
+    print("Extracted %s definitions from a total of %s" % (r, o))
     print("Some AUIs could not be mapped %s" % s)
 
     print("Writing json file")

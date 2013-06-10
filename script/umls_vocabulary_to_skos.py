@@ -467,6 +467,9 @@ def extract_umls_subset_to_json(umls_directory, SAB=["ICD9CM"], term_types=["HT"
     mrconso_rrf_file_name = os.path.join(umls_directory, mrconso_rrf)
     mrconso = RRFReader(mrconso_rrf_file_name, mrconso_file_layout)
 
+
+    sab_name = "_".join(SAB)
+
     aui_subset = {}
     i = 0
     j = 0
@@ -553,7 +556,7 @@ def extract_umls_subset_to_json(umls_directory, SAB=["ICD9CM"], term_types=["HT"
 
     print("Writing json file")
 
-    sab_umls_json = os.path.join(umls_directory, SAB + "_umls" + ".json")
+    sab_umls_json = os.path.join(umls_directory, sab_name + "_umls" + ".json")
     with open(sab_umls_json, "w") as fw:
         json.dump(aui_subset, fw)
 
@@ -587,18 +590,18 @@ def connect_vocabularies(mapping_file_name, umls_skos_obj_from, umls_skos_obj_to
 
 
 def main():
+    umls_directory = "../extract/UMLSMicro2012AB/"
     if len(sys.argv) == 1:
-        umls_directory = "../extract/UMLSMicro2012AB/"
         refresh_json_file = False
     elif len(sys.argv) >= 2:
-        refresh_flag = sys.argv[2]
+        refresh_flag = sys.argv[1]
         if refresh_flag in ["T", "1", "TRUE", "True", "true"]:
             refresh_json_file = True
         else:
             refresh_json_file = False
 
         if len(sys.argv) > 2:
-            umls_directory = sys.argv[3]
+            umls_directory = sys.argv[2]
 
     icd9cm_isf = publish_icd9cm(umls_directory, refresh_json_file)
     if len(sys.argv) <= 2:
@@ -611,7 +614,6 @@ def main():
         cpt_isf = publish_CPT_MTHCH(umls_directory, refresh_json_file)
         #TODO: Complete mapping file this is just a stub
         connect_vocabularies("../mapping/cpt_to_msh_fast_trans.csv", cpt_isf, msh_isf)
-
 
 if __name__ == "__main__":
     main()

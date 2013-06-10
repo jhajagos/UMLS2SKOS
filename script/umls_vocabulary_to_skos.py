@@ -131,10 +131,10 @@ class UMLSJsonToISFSKOS(object):
 
     def set_schema_version_from_sab(self):
         """Source"""
-        sources = self.concept_abbreviation.split()
+        sources = self.concept_abbreviation.split("_")
         concept_version = ""
         for source in sources:
-            concept_version += "_" + self.sab_dict[self.concept_abbreviation]["SVER"]
+            concept_version += "_" + self.sab_dict[source]["SVER"]
         self.concept_version_abbreviation = concept_version[1:]
 
     def set_base_uri(self, uri="http://purl.obolibrary.org/obo/arg/skos/"):

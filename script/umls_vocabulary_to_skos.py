@@ -618,7 +618,7 @@ def main():
         connect_vocabularies("../mappings/ICD_to_MSH_fast_trans_with_header.csv", icd9cm_isf, msh_isf)
         cpt_isf = publish_CPT_MTHCH(umls_directory, refresh_json_file)
         #TODO: Complete mapping file this is just a stub
-        connect_vocabularies("../mapping/cpt_to_msh_fast_trans.csv", cpt_isf, msh_isf)
+        connect_vocabularies("../mappings/cpt_to_msh_fast_trans.csv", cpt_isf, msh_isf)
 
 if __name__ == "__main__":
     main()

@@ -64,9 +64,13 @@ def read_file_layout(file_name):
 
 def transform_to_url(string_to_transform):
     """Transform a string to be more URL friendly"""
-    s1 = string.join(string_to_transform.split("."),"_")
-    s2 = string.join(s1.split(),"_")
-    return s2
+
+    s1 = string.join(string_to_transform.split("."), "_")
+    s2 = string.join(s1.split(":"), "_")
+    s3 = string.join(s2.split("-"), "_")
+    s4 = string.join(s3.split(), "_")
+
+    return s4
 
 
 class UMLSJsonToISFSKOS(object):
@@ -75,13 +79,13 @@ class UMLSJsonToISFSKOS(object):
         self.aui_json_file_name = aui_json_file_name
         self.sab_json_file_name = sab_json_file_name
 
-        self.prefixes = {"skos" : "http://www.w3.org/2004/02/skos/core#",
-                         "rdf" : "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-                         "arg" : "http://purl.obolibrary.org/obo/arg/",
-                         "rdfs" : "http://www.w3.org/2000/01/rdf-schema#",
-                         "owl" : "http://www.w3.org/2002/07/owl#",
-                         "skosxl" : "http://www.w3.org/2008/05/skos-xl#",
-                         "dc" : "http://purl.org/dc/terms/"
+        self.prefixes = {"skos": "http://www.w3.org/2004/02/skos/core#",
+                         "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+                         "arg": "http://purl.obolibrary.org/obo/arg/",
+                         "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+                         "owl": "http://www.w3.org/2002/07/owl#",
+                         "skosxl": "http://www.w3.org/2008/05/skos-xl#",
+                         "dc": "http://purl.org/dc/terms/"
         }
 
         self.dc_subject = self.prefixes["dc"] + "subject"

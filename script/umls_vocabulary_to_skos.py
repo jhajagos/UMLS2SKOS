@@ -190,13 +190,13 @@ class UMLSJsonToISFSKOS(object):
         sui_dict = {}  #TODO: For SUIs do not create duplicates
         with codecs.open(file_name, "w", "utf-8") as ft:
 
-            ft.write("<%s> <%s> <%s> . \n" % (self.scheme_uri(), self.rdf_type, self.skos_concept_scheme))
-            ft.write('<%s> <%s> "%s"@en . \n' % (self.scheme_uri(), self.dc_title,
+            ft.write("<%s> <%s> <%s> .\n" % (self.scheme_uri(), self.rdf_type, self.skos_concept_scheme))
+            ft.write('<%s> <%s> "%s"@en .\n' % (self.scheme_uri(), self.dc_title,
                                                  self._escape_literal(self.concept_abbreviation)))
-            ft.write('<%s> <%s> "%s"@en . \n' % (self.scheme_uri(), self.dc_subject, "Mapping UMLS vocabulary to SKOS"))
-            ft.write('<%s> <%s> "%s"@en . \n' % (self.scheme_uri(), self.dc_creator, "script"))
+            ft.write('<%s> <%s> "%s"@en .\n' % (self.scheme_uri(), self.dc_subject, "Mapping UMLS vocabulary to SKOS"))
+            ft.write('<%s> <%s> "%s"@en .\n' % (self.scheme_uri(), self.dc_creator, "script"))
 
-            ft.write('<%s> <%s> "%s"@en . \n' % (self.scheme_uri(), self.rdfs_label,
+            ft.write('<%s> <%s> "%s"@en .\n' % (self.scheme_uri(), self.rdfs_label,
                                                  self._escape_literal(self.concept_abbreviation)))
 
             auis_left_relationship = []
@@ -234,7 +234,7 @@ class UMLSJsonToISFSKOS(object):
 
                 if "definition" in aui_dict:
                     definition = aui_dict["definition"]
-                    ntriples += '<%s> <%s> "%s"@en .' % (concept_uri, self.skos_definition,
+                    ntriples += '<%s> <%s> "%s"@en .\n' % (concept_uri, self.skos_definition,
                                                          self._escape_literal(definition))
 
                 if "relationships" in aui_dict:
@@ -245,9 +245,9 @@ class UMLSJsonToISFSKOS(object):
                                 if aui_code_to_link_to in self.umls_dict:
                                     aui_to_link_to = self.umls_dict[aui_code_to_link_to]
                                     concept_uri_to_link_to = self.concept_uri(aui_to_link_to["CODE"])
-                                    ntriples += '<%s> <%s> <%s> . \n' % (concept_uri, self.skos_broader,
+                                    ntriples += '<%s> <%s> <%s> .\n' % (concept_uri, self.skos_broader,
                                                                          concept_uri_to_link_to)
-                                    ntriples += '<%s> <%s> <%s> . \n' % (concept_uri_to_link_to, self.skos_narrower,
+                                    ntriples += '<%s> <%s> <%s> .\n' % (concept_uri_to_link_to, self.skos_narrower,
                                                                          concept_uri)
                                     auis_left_relationship.append(aui)
                                     auis_right_relationship.append(aui_code_to_link_to)
@@ -475,7 +475,6 @@ def extract_umls_subset_to_json(umls_directory, SAB=["ICD9CM"], term_types=["HT"
     mrconso_file_layout = file_layout[mrconso_rrf]
     mrconso_rrf_file_name = os.path.join(umls_directory, mrconso_rrf)
     mrconso = RRFReader(mrconso_rrf_file_name, mrconso_file_layout)
-
 
     sab_name = "_".join(SAB)
 
